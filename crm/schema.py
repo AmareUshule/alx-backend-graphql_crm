@@ -1,3 +1,4 @@
+# Create a corrected schema.py file
 import re
 import graphene
 from django.db import transaction
@@ -5,6 +6,7 @@ from graphene_django import DjangoObjectType
 from .models import Customer, Product, Order
 from django.utils import timezone
 
+# GraphQL Types
 class CustomerType(DjangoObjectType):
     class Meta:
         model = Customer
@@ -22,7 +24,15 @@ class OrderType(DjangoObjectType):
         model = Order
         fields = "__all__"
 
+# Define Input Object Type for bulk creation
+class CustomerInput(graphene.InputObjectType):
+    name = graphene.String(required=True)
+    email = graphene.String(required=True)
+    phone = graphene.String()
 
+# Mutations
+
+# CreateCustomer
 class CreateCustomer(graphene.Mutation):
     customer = graphene.Field(CustomerType)
     message = graphene.String()
@@ -49,23 +59,14 @@ class CreateCustomer(graphene.Mutation):
             customer=customer,
             message="Customer created successfully"
         )
-    
 
+# BulkCreateCustomers (Partial Success) - FIXED VERSION
 class BulkCreateCustomers(graphene.Mutation):
     customers = graphene.List(CustomerType)
     errors = graphene.List(graphene.String)
 
     class Arguments:
-        input = graphene.List(
-            graphene.NonNull(
-                graphene.InputObjectType(
-                    "CustomerInput",
-                    name=graphene.String(required=True),
-                    email=graphene.String(required=True),
-                    phone=graphene.String(),
-                )
-            )
-        )
+        input = graphene.List(graphene.NonNull(CustomerInput), required=True)
 
     def mutate(self, info, input):
         created = []
@@ -86,6 +87,7 @@ class BulkCreateCustomers(graphene.Mutation):
 
         return BulkCreateCustomers(customers=created, errors=errors)
 
+# CreateProduct
 class CreateProduct(graphene.Mutation):
     product = graphene.Field(ProductType)
 
@@ -108,6 +110,7 @@ class CreateProduct(graphene.Mutation):
 
         return CreateProduct(product=product)
 
+# CreateOrder
 class CreateOrder(graphene.Mutation):
     order = graphene.Field(OrderType)
 
@@ -140,6 +143,7 @@ class CreateOrder(graphene.Mutation):
         order.products.set(products)
         return CreateOrder(order=order)
 
+# Query & Mutation Containers
 class Query(graphene.ObjectType):
     customers = graphene.List(CustomerType)
     products = graphene.List(ProductType)
@@ -160,5 +164,3 @@ class Mutation(graphene.ObjectType):
     bulk_create_customers = BulkCreateCustomers.Field()
     create_product = CreateProduct.Field()
     create_order = CreateOrder.Field()
-
-
