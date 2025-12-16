@@ -5,6 +5,9 @@ from django.db import transaction
 from graphene_django import DjangoObjectType
 from .models import Customer, Product, Order
 from django.utils import timezone
+from graphene_django.filter import DjangoFilterConnectionField
+from .filters import CustomerFilter, ProductFilter, OrderFilter
+
 
 # GraphQL Types
 class CustomerType(DjangoObjectType):
@@ -54,6 +57,7 @@ class CreateCustomer(graphene.Mutation):
             email=email,
             phone=phone
         )
+        
         customer.save()
 
         return CreateCustomer(
