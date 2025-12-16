@@ -1,31 +1,33 @@
-# Create a corrected schema.py file
 import re
 import graphene
 from django.db import transaction
-from graphene_django import DjangoObjectType
+from graphene_django import DjangoObjectType, DjangoFilterConnectionField
+from graphene import relay
 from .models import Customer, Product, Order
-from django.utils import timezone
-from graphene_django.filter import DjangoFilterConnectionField
 from .filters import CustomerFilter, ProductFilter, OrderFilter
+from django.utils import timezone
 
-
-# GraphQL Types
-class CustomerType(DjangoObjectType):
+# GraphQL Types with Node support
+class CustomerNode(DjangoObjectType):
     class Meta:
         model = Customer
+        interfaces = (relay.Node,)
         fields = "__all__"
+        filter_fields = {}
 
-
-class ProductType(DjangoObjectType):
+class ProductNode(DjangoObjectType):
     class Meta:
         model = Product
+        interfaces = (relay.Node,)
         fields = "__all__"
+        filter_fields = {}
 
-
-class OrderType(DjangoObjectType):
+class OrderNode(DjangoObjectType):
     class Meta:
         model = Order
+        interfaces = (relay.Node,)
         fields = "__all__"
+        filter_fields = {}
 
 # Define Input Object Type for bulk creation
 class CustomerInput(graphene.InputObjectType):
@@ -37,7 +39,7 @@ class CustomerInput(graphene.InputObjectType):
 
 # CreateCustomer
 class CreateCustomer(graphene.Mutation):
-    customer = graphene.Field(CustomerType)
+    customer = graphene.Field(CustomerNode)
     message = graphene.String()
 
     class Arguments:
@@ -57,17 +59,15 @@ class CreateCustomer(graphene.Mutation):
             email=email,
             phone=phone
         )
-        
-        customer.save()
 
         return CreateCustomer(
             customer=customer,
             message="Customer created successfully"
         )
 
-# BulkCreateCustomers (Partial Success) - FIXED VERSION
+# BulkCreateCustomers (Partial Success)
 class BulkCreateCustomers(graphene.Mutation):
-    customers = graphene.List(CustomerType)
+    customers = graphene.List(CustomerNode)
     errors = graphene.List(graphene.String)
 
     class Arguments:
@@ -94,7 +94,7 @@ class BulkCreateCustomers(graphene.Mutation):
 
 # CreateProduct
 class CreateProduct(graphene.Mutation):
-    product = graphene.Field(ProductType)
+    product = graphene.Field(ProductNode)
 
     class Arguments:
         name = graphene.String(required=True)
@@ -117,7 +117,7 @@ class CreateProduct(graphene.Mutation):
 
 # CreateOrder
 class CreateOrder(graphene.Mutation):
-    order = graphene.Field(OrderType)
+    order = graphene.Field(OrderNode)
 
     class Arguments:
         customer_id = graphene.ID(required=True)
@@ -148,11 +148,28 @@ class CreateOrder(graphene.Mutation):
         order.products.set(products)
         return CreateOrder(order=order)
 
-# Query & Mutation Containers
+# Query & Mutation Containers with Filtering
 class Query(graphene.ObjectType):
-    customers = graphene.List(CustomerType)
-    products = graphene.List(ProductType)
-    orders = graphene.List(OrderType)
+    # Filtered connections
+    all_customers = DjangoFilterConnectionField(
+        CustomerNode,
+        filterset_class=CustomerFilter
+    )
+    
+    all_products = DjangoFilterConnectionField(
+        ProductNode,
+        filterset_class=ProductFilter
+    )
+    
+    all_orders = DjangoFilterConnectionField(
+        OrderNode,
+        filterset_class=OrderFilter
+    )
+    
+    # Legacy queries (kept for backward compatibility)
+    customers = graphene.List(CustomerNode)
+    products = graphene.List(ProductNode)
+    orders = graphene.List(OrderNode)
 
     def resolve_customers(self, info):
         return Customer.objects.all()
